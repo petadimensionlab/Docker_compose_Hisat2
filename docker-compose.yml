@@ -1,0 +1,54 @@
+##env in .env file
+## Make Hisat2 index
+# docker run --rm  -v /your_localdir/Docker_compose_Hisat2/:/data/ biocontainers/hisat2:v2.1.0-2-deb_cv1 hisat2-build Hisat2idx/${SPECIES}.fa ${SPECIES}
+# mv ${SPECIES}.* Hisat2idx/
+## Download SRA
+# docker run --rm -v /yourlocal_dir/Docker_compose_Hisat2/input:/root/ncbi/public/sra inutano/sra-toolkit prefetch ${ID}
+
+version: "3"
+services:
+  parallel-fastq:
+    image: quay.io/biocontainers/parallel-fastq-dump:${VER_1}
+    container_name: parallel-fastq
+    tty: true
+    volumes:
+      - ${DIR}:/tmp/wk
+    working_dir: /tmp/wk
+    command: >
+      bash -c "parallel-fastq-dump --sra-id input/${ID}.sra --threads ${THREADS} --split-files --gzip &&
+      mkdir -p output/${ID} &&
+      mv *.fastq.gz output/${ID}/"
+
+  fastp:
+    image: quay.io/biocontainers/fastp:${VER_2}
+    container_name: fastp
+    tty: true
+    volumes:
+      - ${DIR}:/tmp/wk
+    working_dir: /tmp/wk
+    command: sh wait-for-it.sh output/${ID}/${ID}_1.fastq.gz fastp -w ${THREADS} -h output/${ID}/${ID}.html -j output/${ID}/${ID}.json -i output/${ID}/${ID}_1.fastq.gz -I output/${ID}/${ID}_2.fastq.gz -o output/${ID}/${ID}_trim_paired_1.fastq.gz -O output/${ID}/${ID}_trim_paired_2.fastq.gz
+
+  hisat2:
+    image: biocontainers/hisat2:${VER_3}
+    container_name: hisat2
+    tty: true
+    volumes:
+      - ${DIR}:/tmp/wk
+    working_dir: /tmp/wk
+    command: >
+      bash  -c "sh wait-for-it.sh output/${ID}/${ID}.html hisat2 -x Hisat2idx/${SPECIES} -1 output/${ID}/${ID}_trim_paired_1.fastq.gz -2 output/${ID}/${ID}_trim_paired_2.fastq.gz -p ${THREADS} -S output/${ID}/${ID}.sam &&
+      touch hisat_finish.txt "
+
+  samtools:
+    image: quay.io/biocontainers/samtools:${VER_4}
+    container_name: samtools
+    tty: true
+    volumes:
+      - ${DIR}:/tmp/wk
+    working_dir: /tmp/wk
+    command: >
+      bash  -c "sh wait-for-it.sh hisat_finish.txt samtools view -@ ${THREADS} -Sb output/${ID}/${ID}.sam > output/${ID}/${ID}.bam &&
+      rm output/${ID}/${ID}.sam SRR7508943.sam view hisat_finish.txt"
+
+
+
