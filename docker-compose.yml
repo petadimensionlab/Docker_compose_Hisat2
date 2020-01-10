@@ -47,8 +47,9 @@ services:
       - ${DIR}:/tmp/wk
     working_dir: /tmp/wk
     command: >
-      bash  -c "sh wait-for-it.sh hisat_finish.txt samtools view -@ ${THREADS} -Sb output/${ID}/${ID}.sam > output/${ID}/${ID}.bam &&
-      rm output/${ID}/${ID}.sam SRR7508943.sam view hisat_finish.txt"
+      bash  -c "sh wait-for-it.sh hisat_finish.txt echo sam to bam &&
+      samtools view -@ ${THREADS} -Sb output/${ID}/${ID}.sam > output/${ID}/${ID}.bam &&
+      rm output/${ID}/${ID}.sam sam hisat_finish.txt"
 
 
 
